@@ -1,0 +1,26 @@
+{
+  "name": "ironbane-server",
+  "version": "0.1.0",
+  "description": "The server for Ironbane, the action MMO.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:ironbane/ironbane-server.git"
+  },
+  "keywords": [
+    "ironbane",
+    "mmo",
+    "server",
+    "mmorpg",
+    "game"
+  ],
+  "author": "Ironbane Team",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ironbane/ironbane-server/issues"
+  },
+  "homepage": "https://github.com/ironbane/ironbane-server"
+}
