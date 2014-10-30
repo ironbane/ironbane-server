@@ -1,4 +1,4 @@
-ironbane-server
+Ironbane-server
 ===============
 
 Welcome to the Ironbane server repository, the new server for Ironbane, the 3D WebGL MMO.
