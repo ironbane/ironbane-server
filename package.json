@@ -2,7 +2,7 @@
   "name": "ironbane-server",
   "version": "0.1.0",
   "description": "The server for Ironbane, the action MMO.",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -22,5 +22,13 @@
   "bugs": {
     "url": "https://github.com/ironbane/ironbane-server/issues"
   },
-  "homepage": "https://github.com/ironbane/ironbane-server"
+  "homepage": "https://github.com/ironbane/ironbane-server",
+  "dependencies": {
+    "express": "^4.10.1",
+    "nconf": "^0.6.9",
+    "ng-di": "^0.1.1",
+    "socket.io": "^1.2.0",
+    "underscore": "^1.7.0",
+    "three": "*"
+  }
 }
