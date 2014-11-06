@@ -1,20 +1,34 @@
 var app = require('express')();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+
 var angular = require('ng-di');
-var ces = require('./engine/ces/ces.js');
+var requireDir = require('require-dir');
 
-angular.module('app', ['ces'])
-.run(function(World) {
-    var world = new World();
+var rw = {};
 
-    console.log('booted', world);
-});
+// load up all angular stuff
+requireDir('./engine', {recurse: true});
+
+angular.module('app', ['ces', 'engine.world-root'])
+    .service('$log', function () {
+        return console;
+    })
+    .run(function ($rootWorld) {
+        var gameloop = require('node-gameloop');
+
+        var id = gameloop.setGameLoop(function (delta) {
+            $rootWorld.update(delta);
+        }, 1000 / 60);
+
+        rw.loopId = id;
+        rw.world = $rootWorld;
+    });
 
 angular.injector(['app']);
 
 app.get('/', function (req, res) {
-    res.send(ces);
+    res.send(rw);
 });
 
 io.on('connection', function (socket) {
