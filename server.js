@@ -5,34 +5,42 @@ var io = require('socket.io')(http);
 var angular = require('ng-di');
 var requireDir = require('require-dir');
 
-var rw = {};
+var world = {};
 
 // load up all angular stuff
-requireDir('./engine', {recurse: true});
+requireDir('./engine', {
+    recurse: true
+});
 
 angular.module('app', ['ces', 'engine.world-root'])
-    .service('$log', function () {
+    .factory('$log', function () {
+        console.debug = console.log;
         return console;
     })
-    .run(function ($rootWorld) {
+    .run(function ($rootWorld, Entity) {
         var gameloop = require('node-gameloop');
 
         var id = gameloop.setGameLoop(function (delta) {
             $rootWorld.update(delta);
         }, 1000 / 60);
 
-        rw.loopId = id;
-        rw.world = $rootWorld;
+        world.loopId = id;
+        world.world = $rootWorld;
+
+        io.on('connection', function (socket) {
+            console.log('a user connected');
+
+            var entity = new Entity();
+            entity.socket = socket; // temp
+
+            $rootWorld.addEntity(entity);
+        });
     });
 
 angular.injector(['app']);
 
 app.get('/', function (req, res) {
-    res.send(rw);
-});
-
-io.on('connection', function (socket) {
-    console.log('a user connected');
+    res.sendFile(__dirname + '/index.html');
 });
 
 http.listen(3000, function () {
