@@ -34,6 +34,21 @@ angular.module('app', ['ces', 'engine.world-root'])
             entity.socket = socket; // temp
 
             $rootWorld.addEntity(entity);
+
+            socket.on('disconnect', function () {
+                console.log('user disconnected');
+                $rootWorld.removeEntity(entity);
+            });
+
+            socket.on('chat message', function (msg) {
+                console.log('chat message', msg);
+
+                if(msg === 'getEntities') {
+                    io.emit('chat message', JSON.stringify($rootWorld.getEntities().length));
+                } else {
+                    io.emit('chat message', msg);
+                }
+            });
         });
     });
 
