@@ -8,6 +8,3 @@ We are thinking it over and over in the [wiki](https://github.com/ironbane/ironb
 So if you are bored, don't know what to do with your life, and happen to be that cloud and server specialist...
 
 Feel free to provide us with your input and great ideas.
-
-
-
