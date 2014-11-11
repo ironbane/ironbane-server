@@ -36,16 +36,23 @@ angular.module('app', ['ces', 'engine.world-root'])
         var SnapshotSystem = System.extend({
             init: function (io) {
                 this.io = io;
+                this.emitTime = 1000;
             },
             update: function (dt) {
-                var snapshot = {};
+                this.emitTime -= dt;
 
-                // later use interest
-                this.world.getEntities().forEach(function (ent) {
-                    snapshot[ent.id] = ent.position.toArray();
-                });
+                if (this.emitTime <= 0) {
+                    var snapshot = {};
 
-                this.io.emit('snapshot', snapshot);
+                    // later use interest
+                    this.world.getEntities().forEach(function (ent) {
+                        snapshot[ent.id] = ent.position.toArray();
+                    });
+
+                    this.io.emit('snapshot', snapshot);
+
+                    this.emitTime = 1000;
+                }
             }
         });
 
