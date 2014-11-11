@@ -4,6 +4,9 @@ logs
 
 ibconfig.json
 
+config/production.json
+config/config.json
+
 # Runtime data
 pids
 *.pid

@@ -1,11 +1,16 @@
-var app = require('express')();
-var http = require('http').Server(app);
-var io = require('socket.io')(http);
+var express = require('express'),
+    nconf = require('nconf'),
+    app = express(),
+    http = require('http').Server(app),
+    io = require('socket.io')(http),
+    angular = require('ng-di'),
+    requireDir = require('require-dir'),
+    world = {},
+    server;
 
-var angular = require('ng-di');
-var requireDir = require('require-dir');
+require('./config')();
 
-var world = {};
+app.set('port', nconf.get('port'));
 
 // load up all angular stuff
 requireDir('./engine', {
@@ -43,7 +48,7 @@ angular.module('app', ['ces', 'engine.world-root'])
             socket.on('chat message', function (msg) {
                 console.log('chat message', msg);
 
-                if(msg === 'getEntities') {
+                if (msg === 'getEntities') {
                     io.emit('chat message', JSON.stringify($rootWorld.getEntities().length));
                 } else {
                     io.emit('chat message', msg);
@@ -58,6 +63,6 @@ app.get('/', function (req, res) {
     res.sendFile(__dirname + '/index.html');
 });
 
-http.listen(3000, function () {
-    console.log('listening on *:3000');
+server = http.listen(nconf.get('port'), function () {
+    console.log('Ironbane server listening on port ' + server.address().port + ' in ' + app.settings.env + ' mode');
 });
