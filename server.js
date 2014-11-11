@@ -36,12 +36,12 @@ angular.module('app', ['ces', 'engine.world-root'])
         var SnapshotSystem = System.extend({
             init: function (io) {
                 this.io = io;
-                this.emitTime = 1000;
+                this.emitTime = 480;
             },
             update: function (dt) {
                 this.emitTime -= dt;
 
-                //if (this.emitTime <= 0) {
+                if (this.emitTime <= 0) {
                     var snapshot = {};
 
                     // later use interest
@@ -51,8 +51,8 @@ angular.module('app', ['ces', 'engine.world-root'])
 
                     this.io.emit('snapshot', snapshot);
 
-                    this.emitTime = 1000;
-                //}
+                    this.emitTime = 480;
+                }
             }
         });
 
