@@ -39,7 +39,7 @@ angular.module('app', ['ces', 'engine.world-root'])
                 this.emitTime = 480;
             },
             update: function (dt) {
-                this.emitTime -= dt;
+                this.emitTime -= dt * 1000;
 
                 if (this.emitTime <= 0) {
                     var snapshot = {};
