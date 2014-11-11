@@ -12,6 +12,16 @@ require('./config')();
 
 app.set('port', nconf.get('port'));
 
+// CORS to get hosted socket.io script (TODO: use config)
+app.use(function (req, res, next) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'X-Requested-With');
+    res.header('Access-Control-Allow-Headers', 'Content-Type');
+    res.header('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, OPTIONS');
+    next();
+});
+io.origins('*:*');
+
 // load up all angular stuff
 requireDir('./engine', {
     recurse: true
