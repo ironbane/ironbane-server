@@ -32,23 +32,50 @@ angular.module('app', ['ces', 'engine.world-root'])
         console.debug = console.log;
         return console;
     })
-    .run(function ($rootWorld, Entity) {
+    .factory('SnapshotSystem', function (System) {
+        var SnapshotSystem = System.extend({
+            init: function (io) {
+                this.io = io;
+            },
+            update: function (dt) {
+                var snapshot = {};
+
+                // later use interest
+                this.world.getEntities().forEach(function (ent) {
+                    snapshot[ent.id] = ent.position.toArray();
+                });
+
+                this.io.emit('snapshot', snapshot);
+            }
+        });
+
+        return SnapshotSystem;
+    })
+    .run(function ($rootWorld, Entity, SnapshotSystem) {
         var gameloop = require('node-gameloop');
 
         var id = gameloop.setGameLoop(function (delta) {
             $rootWorld.update(delta);
         }, 1000 / 60);
 
+        $rootWorld.addSystem(new SnapshotSystem(io));
+
         world.loopId = id;
         world.world = $rootWorld;
 
         io.on('connection', function (socket) {
-            console.log('a user connected');
-
             var entity = new Entity();
-            entity.socket = socket; // temp
+            socket.entity = entity;
 
             $rootWorld.addEntity(entity);
+
+            socket.broadcast.emit('join', {
+                entity: entity
+            });
+
+            socket.on('sync', function (pos) {
+                socket.entity.position.set(pos[0], pos[1], pos[2]);
+            });
 
             socket.on('disconnect', function () {
                 console.log('user disconnected');
