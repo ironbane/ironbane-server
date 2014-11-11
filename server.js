@@ -65,7 +65,7 @@ angular.module('app', ['ces', 'engine.world-root'])
             $rootWorld.update(delta);
         }, 1000 / 60);
 
-        //$rootWorld.addSystem(new SnapshotSystem(io));
+        $rootWorld.addSystem(new SnapshotSystem(io));
 
         world.loopId = id;
         world.world = $rootWorld;
@@ -77,7 +77,7 @@ angular.module('app', ['ces', 'engine.world-root'])
             $rootWorld.addEntity(entity);
 
             socket.broadcast.emit('join', {
-                entity: entity
+                entity: entity.id
             });
 
             socket.on('sync', function (pos) {
