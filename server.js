@@ -1,4 +1,6 @@
-var express = require('express'),
+var config = require('./ibconfig.json'),
+    cluster = require('cluster'),
+    express = require('express'),
     nconf = require('nconf'),
     app = express(),
     http = require('http').Server(app),
