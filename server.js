@@ -60,6 +60,11 @@ if (cluster.isMaster) {
         var worker = workers[worker_index(connection.remoteAddress, num_processes)];
         worker.send('sticky-session:connection', connection);
     }).listen(port);
+
+    // nodejs bug workaround outlined in joyent/node#7905
+    server.on('connection', function (c) {
+        c._handle.readStop();
+    });
 } else {
     // Note we don't use a port here because the master listens on it for us.
     var app = new express();
