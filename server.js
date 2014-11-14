@@ -78,6 +78,11 @@ if (cluster.isMaster) {
     app.get('/', function (req, res) {
         res.sendFile(__dirname + '/index.html');
     });
+    app.get('/foo', function (req, res) {
+        res.send({
+            bar: 'baz'
+        });
+    });
 
 
     // Don't expose our internal server to the outside.
