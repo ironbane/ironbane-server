@@ -33,8 +33,8 @@
         return false;
       });
 
-      socket.on('chat message', function(msg){
-        $('#messages').append($('<li>').text(msg));
+      socket.on('chat message', function( data ){
+        $('#messages').append($('<li>').text('[' + data.id + ' >> ' + data.worker + ']: ' + data.msg));
       });
     </script>
   </body>

@@ -1,112 +1,116 @@
 var express = require('express'),
-    nconf = require('nconf'),
-    app = express(),
-    http = require('http').Server(app),
-    io = require('socket.io')(http),
-    angular = require('ng-di'),
-    requireDir = require('require-dir'),
-    world = {},
-    server;
+    cluster = require('cluster'),
+    net = require('net'),
+    sio = require('socket.io'),
+    sio_redis = require('socket.io-redis'),
+    nconf = require('nconf');
 
+// load config and defaults
 require('./config')();
 
-app.set('port', nconf.get('port'));
+var port = nconf.get('port'),
+    num_processes = nconf.get('num_workers') || require('os').cpus().length;
 
-// CORS to get hosted socket.io script (TODO: use config)
-app.use(function (req, res, next) {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'X-Requested-With');
-    res.header('Access-Control-Allow-Headers', 'Content-Type');
-    res.header('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, OPTIONS');
-    next();
-});
-io.origins('*:*');
+if (cluster.isMaster) {
+    // This stores our workers. We need to keep them to be able to reference
+    // them based on source IP address. It's also useful for auto-restart,
+    // for example.
+    var workers = [];
 
-// load up all angular stuff
-requireDir('./engine', {
-    recurse: true
-});
+    // Helper function for spawning worker at index 'i'.
+    var spawn = function (i) {
+        workers[i] = cluster.fork();
 
-angular.module('app', ['ces', 'engine.world-root'])
-    .factory('$log', function () {
-        console.debug = console.log;
-        return console;
-    })
-    .factory('SnapshotSystem', function (System) {
-        var SnapshotSystem = System.extend({
-            init: function (io) {
-                this.io = io;
-                this.emitTime = 480;
-            },
-            update: function (dt) {
-                this.emitTime -= dt * 1000;
-
-                if (this.emitTime <= 0) {
-                    var snapshot = {};
-
-                    // later use interest
-                    this.world.getEntities().forEach(function (ent) {
-                        snapshot[ent.id] = ent.position.toArray();
-                    });
-
-                    this.io.emit('snapshot', snapshot);
-
-                    this.emitTime = 480;
-                }
-            }
+        // Optional: Restart worker on exit
+        workers[i].on('exit', function (worker, code, signal) {
+            console.log('respawning worker', i);
+            spawn(i);
         });
+    };
 
-        return SnapshotSystem;
-    })
-    .run(function ($rootWorld, Entity, SnapshotSystem) {
-        var gameloop = require('node-gameloop');
+    // Spawn workers.
+    for (var i = 0; i < num_processes; i++) {
+        spawn(i);
+    }
 
-        var id = gameloop.setGameLoop(function (delta) {
-            $rootWorld.update(delta);
-        }, 1000 / 60);
+    // Helper function for getting a worker index based on IP address.
+    // This is a hot path so it should be really fast. The way it works
+    // is by converting the IP address to a number by removing the dots,
+    // then compressing it to the number of slots we have.
+    //
+    // Compared against "real" hashing (from the sticky-session code) and
+    // "real" IP number conversion, this function is on par in terms of
+    // worker index distribution only much faster.
+    var worker_index = function (ip, len) {
+        var s = '';
+        for (var i = 0, _len = ip.length; i < _len; i++) {
+            if (ip[i] !== '.') {
+                s += ip[i];
+            }
+        }
 
-        $rootWorld.addSystem(new SnapshotSystem(io));
+        return Number(s) % len;
+    };
 
-        world.loopId = id;
-        world.world = $rootWorld;
+    // Create the outside facing server listening on our port.
+    var server = net.createServer(function (connection) {
+        // We received a connection and need to pass it to the appropriate
+        // worker. Get the worker for this connection's source IP and pass
+        // it the connection.
+        var worker = workers[worker_index(connection.remoteAddress, num_processes)];
+        worker.send('sticky-session:connection', connection);
+    }).listen(port);
+} else {
+    // Note we don't use a port here because the master listens on it for us.
+    var app = new express();
 
-        io.on('connection', function (socket) {
-            var entity = new Entity();
-            socket.entity = entity;
+    // Here you might use middleware, attach routes, etc.
+    // CORS to get hosted socket.io script (TODO: use config)
+    app.use(function (req, res, next) {
+        res.header('Access-Control-Allow-Origin', '*');
+        res.header('Access-Control-Allow-Headers', 'X-Requested-With');
+        res.header('Access-Control-Allow-Headers', 'Content-Type');
+        res.header('Access-Control-Allow-Methods', 'PUT, GET, POST, DELETE, OPTIONS');
+        next();
+    });
 
-            $rootWorld.addEntity(entity);
+    // TODO: remove test endpoint
+    app.get('/', function (req, res) {
+        res.sendFile(__dirname + '/index.html');
+    });
 
-            socket.broadcast.emit('join', {
-                entity: entity.id
-            });
 
-            socket.on('sync', function (pos) {
-                socket.entity.position.set(pos[0], pos[1], pos[2]);
-            });
+    // Don't expose our internal server to the outside.
+    var server = app.listen(0, 'localhost'),
+        io = sio(server);
 
-            socket.on('disconnect', function () {
-                console.log('user disconnected');
-                $rootWorld.removeEntity(entity);
-            });
+    // Tell Socket.IO to use the redis adapter. By default, the redis
+    // server is assumed to be on localhost:6379. You don't have to
+    // specify them explicitly unless you want to change them.
+    io.adapter(sio_redis({
+        host: 'localhost',
+        port: 6379
+    }));
 
-            socket.on('chat message', function (msg) {
-                console.log('chat message', msg);
-
-                if (msg === 'getEntities') {
-                    io.emit('chat message', JSON.stringify($rootWorld.getEntities().length));
-                } else {
-                    io.emit('chat message', msg);
-                }
+    // Here you might use Socket.IO middleware for authorization etc.
+    io.on('connection', function (socket) {
+        socket.on('chat message', function (msg) {
+            socket.emit('chat message', {
+                id: socket.id,
+                msg: msg,
+                worker: process.env.NODE_WORKER_ID
             });
         });
     });
 
-angular.injector(['app']);
+    // Listen to messages sent from the master. Ignore everything else.
+    process.on('message', function (message, connection) {
+        if (message !== 'sticky-session:connection') {
+            return;
+        }
 
-app.get('/', function (req, res) {
-    res.sendFile(__dirname + '/index.html');
-});
-
-server = http.listen(nconf.get('port'), function () {
-    console.log('Ironbane server listening on port ' + server.address().port + ' in ' + app.settings.env + ' mode');
-});
+        // Emulate a connection event on the server by emitting the
+        // event with the connection the master sent us.
+        server.emit('connection', connection);
+    });
+}
