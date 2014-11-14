@@ -60,11 +60,6 @@ if (cluster.isMaster) {
         var worker = workers[worker_index(connection.remoteAddress, num_processes)];
         worker.send('sticky-session:connection', connection);
     }).listen(port);
-
-    // nodejs bug workaround outlined in joyent/node#7905
-    server.on('connection', function (c) {
-        c._handle.readStop();
-    });
 } else {
     // Note we don't use a port here because the master listens on it for us.
     var app = new express();
@@ -93,17 +88,17 @@ if (cluster.isMaster) {
     // server is assumed to be on localhost:6379. You don't have to
     // specify them explicitly unless you want to change them.
     io.adapter(sio_redis({
-        host: 'localhost',
-        port: 6379
+        host: nconf.get('redis_host'),
+        port: nconf.get('redis_port')
     }));
 
     // Here you might use Socket.IO middleware for authorization etc.
     io.on('connection', function (socket) {
         socket.on('chat message', function (msg) {
-            socket.emit('chat message', {
+            io.emit('chat message', {
                 id: socket.id,
                 msg: msg,
-                worker: process.env.NODE_WORKER_ID
+                worker: process.env.pid
             });
         });
     });
