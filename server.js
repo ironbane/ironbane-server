@@ -11,7 +11,28 @@ require('./config')();
 var port = nconf.get('port'),
     num_processes = nconf.get('num_workers') || require('os').cpus().length;
 
+var MongoClient = require('mongodb').MongoClient,
+    mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port') + '/ironbane'; // TODO: auth
+
 if (cluster.isMaster) {
+
+    MongoClient.connect(mongoUrl, function (err, db) {
+        if (err) {
+            console.error('unable to connect to mongo: ', err);
+            return;
+        }
+
+        db.collection('entities').drop(function(err) {
+            if(err) {
+                console.log('error dropping entities', err);
+                return;
+            }
+
+            // all done
+            db.close();
+        });
+    });
+
     // This stores our workers. We need to keep them to be able to reference
     // them based on source IP address. It's also useful for auto-restart,
     // for example.
@@ -60,9 +81,23 @@ if (cluster.isMaster) {
         var worker = workers[worker_index(connection.remoteAddress, num_processes)];
         worker.send('sticky-session:connection', connection);
     }).listen(port);
+
 } else {
     // Note we don't use a port here because the master listens on it for us.
     var app = new express();
+
+    var MongoClient = require('mongodb').MongoClient,
+        mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port') + '/ironbane', // TODO: auth
+        _db;
+
+    MongoClient.connect(mongoUrl, function (err, db) {
+        if (err) {
+            console.error('unable to connect to mongo: ', err);
+            return;
+        }
+
+        _db = db;
+    });
 
     // Here you might use middleware, attach routes, etc.
     // CORS to get hosted socket.io script (TODO: use config)
@@ -78,10 +113,20 @@ if (cluster.isMaster) {
     app.get('/', function (req, res) {
         res.sendFile(__dirname + '/index.html');
     });
-    app.get('/foo', function (req, res) {
-        res.send({
-            bar: 'baz'
-        });
+    // this is just a debug / test method
+    app.get('/entities', function (req, res) {
+        // TODO: service getter
+        if (_db) {
+            _db.collection('entities').find({}).toArray(function (err, docs) {
+                if (err) {
+                    res.send(500, err);
+                } else {
+                    res.send(docs);
+                }
+            });
+        } else {
+            res.send(500, 'no db connection');
+        }
     });
 
 
@@ -99,6 +144,23 @@ if (cluster.isMaster) {
 
     // Here you might use Socket.IO middleware for authorization etc.
     io.on('connection', function (socket) {
+        console.log('player connected: ', socket.id);
+
+        socket.on('disconnect', function () {
+            console.log('player disconnected: ', socket.id);
+            if (_db) {
+                _db.collection('entities').remove({
+                    socket: socket.id
+                }, function (err, result) {
+                    if (err) {
+                        console.error('error removing entity: ', socket.id);
+                        return;
+                    }
+                    // do something with result?
+                });
+            }
+        });
+
         socket.on('chat message', function (msg) {
             io.emit('chat message', {
                 id: socket.id,
@@ -106,6 +168,30 @@ if (cluster.isMaster) {
                 worker: process.env.pid
             });
         });
+
+        var playerEnt = {
+            position: [22, 5, -10],
+            rotation: [0, Math.PI - 0.4, 0],
+            socket: socket.id
+        };
+        setTimeout(function () {
+            socket.emit('spawn', playerEnt);
+        }, 10);
+
+        if (_db) {
+            _db.collection('entities').insert([
+                playerEnt
+            ], function (err, result) {
+                if (err) {
+                    console.error('error writing to db', err);
+                    return;
+                }
+
+                // TODO: send server ID along with spawn? or generate another entity ID
+
+                console.log('success add documents to db;', result);
+            });
+        }
     });
 
     // Listen to messages sent from the master. Ignore everything else.
@@ -118,4 +204,34 @@ if (cluster.isMaster) {
         // event with the connection the master sent us.
         server.emit('connection', connection);
     });
+
+    var exitHandler = function (options, err) {
+        if (_db) {
+            _db.close();
+        }
+        if (options.cleanup) {
+            console.log('clean');
+        }
+        if (err) {
+            console.log(err.stack);
+        }
+        if (options.exit) {
+            process.exit();
+        }
+    };
+
+    //do something when app is closing
+    process.on('exit', exitHandler.bind(null, {
+        cleanup: true
+    }));
+
+    //catches ctrl+c event
+    process.on('SIGINT', exitHandler.bind(null, {
+        exit: true
+    }));
+
+    //catches uncaught exceptions
+    process.on('uncaughtException', exitHandler.bind(null, {
+        exit: true
+    }));
 }
