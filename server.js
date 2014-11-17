@@ -25,7 +25,6 @@ if (cluster.isMaster) {
         db.collection('entities').drop(function(err) {
             if(err) {
                 console.log('error dropping entities', err);
-                return;
             }
 
             // all done
@@ -175,6 +174,7 @@ if (cluster.isMaster) {
             socket: socket.id
         };
         setTimeout(function () {
+            // for some reason we're not getting this most times
             socket.emit('spawn', playerEnt);
         }, 10);
 
