@@ -89,7 +89,7 @@ if (cluster.isMaster) {
     var app = new express();
 
     var MongoClient = require('mongodb').MongoClient,
-        mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/ironbane',
+        mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/admin',
     _db;
 
     MongoClient.connect(mongoUrl, function (err, db) {
@@ -98,7 +98,7 @@ if (cluster.isMaster) {
             return;
         }
 
-        _db = db;
+        _db = db.db("ironbane");
     });
 
     // Here you might use middleware, attach routes, etc.
