@@ -22,8 +22,8 @@ if (cluster.isMaster) {
             return;
         }
 
-        db.collection('entities').drop(function(err) {
-            if(err) {
+        db.collection('entities').drop(function (err) {
+            if (err) {
                 console.log('error dropping entities', err);
             }
 
@@ -168,30 +168,61 @@ if (cluster.isMaster) {
             });
         });
 
-        var playerEnt = {
-            position: [22, 5, -10],
-            rotation: [0, Math.PI - 0.4, 0],
-            socket: socket.id
-        };
-        setTimeout(function () {
-            // for some reason we're not getting this most times
-            socket.emit('spawn', playerEnt);
-        }, 10);
+        socket.on('request spawn', function () {
+            console.log('spawn requested!', socket.id);
 
-        if (_db) {
-            _db.collection('entities').insert([
-                playerEnt
-            ], function (err, result) {
-                if (err) {
-                    console.error('error writing to db', err);
-                    return;
-                }
+            var playerEnt = {
+                position: [22, 5, -10],
+                rotation: [0, Math.PI - 0.4, 0],
+                socket: socket.id
+            };
 
-                // TODO: send server ID along with spawn? or generate another entity ID
+            if (_db) {
+                _db.collection('entities').insert([
+                    playerEnt
+                ], function (err, result) {
+                    if (err) {
+                        console.error('error writing to db', err);
+                        return;
+                    }
 
-                console.log('success add documents to db;', result);
-            });
-        }
+                    // TODO: send server ID along with spawn? or generate another entity ID
+                    console.log('success add documents to db;', result);
+                    socket.emit('spawn', playerEnt);
+                });
+            }
+        });
+
+        socket.on('movement', function (data) {
+            //console.log('movement: ', data, socket.id);
+            // this is gonna happen a LOT this *needs improvement*
+            if (_db) {
+                _db.collection('entities').update({
+                    socket: socket.id
+                }, {$set: data}, function (err, result) {
+                    if (err) {
+                        console.error('error updating entity: ', err);
+                        return;
+                    }
+                    // do anything with result?
+                });
+            }
+        });
+
+        socket.on('sync', function () {
+            //console.log('sync: ', socket.id);
+            // I know this sucks, but it's the easiest way I could think of, have each client request updates
+            if(_db) {
+                _db.collection('entities').find({}).toArray(function (err, docs) {
+                    if (err) {
+                        console.error('db error get entities: ', err);
+                    }
+
+                    socket.emit('sync', docs || []);
+                });
+            }
+        });
+
     });
 
     // Listen to messages sent from the master. Ignore everything else.
