@@ -3,7 +3,8 @@ var express = require('express'),
     net = require('net'),
     sio = require('socket.io'),
     sio_redis = require('socket.io-redis'),
-    nconf = require('nconf');
+    nconf = require('nconf'),
+    config = require('/opt/ironbane-secret/ironbane-dev-settings/ibconfig.json');
 
 // load config and defaults
 require('./config')();
@@ -12,7 +13,7 @@ var port = nconf.get('port'),
     num_processes = nconf.get('num_workers') || require('os').cpus().length;
 
 var MongoClient = require('mongodb').MongoClient,
-    mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port') + '/ironbane'; // TODO: auth
+    mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port') + '/ironbane'; // TODO: auth
 
 if (cluster.isMaster) {
 
