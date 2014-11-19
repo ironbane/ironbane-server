@@ -15,7 +15,7 @@ var port = nconf.get('port'),
     num_processes = nconf.get('num_workers') || require('os').cpus().length;
 
 var MongoClient = require('mongodb').MongoClient,
-    mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port') + '/ironbane'; // TODO: auth
+    mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/ironbane'; // TODO: auth
 
 if (cluster.isMaster) {
 
@@ -89,7 +89,7 @@ if (cluster.isMaster) {
     var app = new express();
 
     var MongoClient = require('mongodb').MongoClient,
-        mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port') + '/ironbane',
+        mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/ironbane',
     _db;
 
     MongoClient.connect(mongoUrl, function (err, db) {
