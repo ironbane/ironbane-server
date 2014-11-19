@@ -15,7 +15,7 @@ var port = nconf.get('port'),
     num_processes = nconf.get('num_workers') || require('os').cpus().length;
 
 var MongoClient = require('mongodb').MongoClient,
-    mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/ironbane'; // TODO: auth
+    mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/admin'; // TODO: auth
     console.log(mongoUrl);
 if (cluster.isMaster) {
 
