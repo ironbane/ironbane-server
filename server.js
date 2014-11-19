@@ -4,7 +4,9 @@ var express = require('express'),
     sio = require('socket.io'),
     sio_redis = require('socket.io-redis'),
     nconf = require('nconf'),
-    config = require('/opt/ironbane-secret/ironbane-dev-settings/ibconfig.json');
+    config = require('/opt/ironbane-secret/ironbane-dev-settings/ibconfig.json'),
+    seneca = require('seneca');
+
 
 // load config and defaults
 require('./config')();
@@ -87,8 +89,8 @@ if (cluster.isMaster) {
     var app = new express();
 
     var MongoClient = require('mongodb').MongoClient,
-        mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port') + '/ironbane', // TODO: auth
-        _db;
+        mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port') + '/ironbane',
+    _db;
 
     MongoClient.connect(mongoUrl, function (err, db) {
         if (err) {
