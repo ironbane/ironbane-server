@@ -15,28 +15,25 @@ var port = nconf.get('port'),
     num_processes = nconf.get('num_workers') || require('os').cpus().length;
 
 var MongoClient = require('mongodb').MongoClient,
-    mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/admin',
-    _db;
-
-MongoClient.connect(mongoUrl, function (err, db) {
-    if (err) {
-        console.error('unable to connect to mongo: ', err);
-        return;
-    }
-
-    _db = db.db("ironbane");
-});
-
-
+    mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/admin'; // TODO: auth
+    console.log(mongoUrl);
 if (cluster.isMaster) {
 
-    _db.collection('entities').drop(function (err) {
+    MongoClient.connect(mongoUrl, function (err, db) {
+        db.db("ironbane");
         if (err) {
-            console.log('error dropping entities', err);
+            console.error('unable to connect to mongo: ', err);
+            return;
         }
 
-        // all done
-        _db.close();
+        db.collection('entities').drop(function (err) {
+            if (err) {
+                console.log('error dropping entities', err);
+            }
+
+            // all done
+            db.close();
+        });
     });
 
     // This stores our workers. We need to keep them to be able to reference
@@ -91,6 +88,19 @@ if (cluster.isMaster) {
 } else {
     // Note we don't use a port here because the master listens on it for us.
     var app = new express();
+
+    var MongoClient = require('mongodb').MongoClient,
+        mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/admin',
+    _db;
+
+    MongoClient.connect(mongoUrl, function (err, db) {
+        if (err) {
+            console.error('unable to connect to mongo: ', err);
+            return;
+        }
+
+        _db = db.db("ironbane");
+    });
 
     // Here you might use middleware, attach routes, etc.
     // CORS to get hosted socket.io script (TODO: use config)
