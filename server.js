@@ -16,7 +16,7 @@ var port = nconf.get('port'),
 
 var MongoClient = require('mongodb').MongoClient,
     mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/ironbane'; // TODO: auth
-
+    console.log(mongoUrl);
 if (cluster.isMaster) {
 
     MongoClient.connect(mongoUrl, function (err, db) {
