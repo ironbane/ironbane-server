@@ -3,5 +3,9 @@
     "redis_host": "localhost",
     "redis_port": 6379,
     "mongo_host": "localhost",
-    "mongo_port": 27017
+    "mongo_port": 27017,
+    "mongo_db": "ironbane",
+    "mongo_user": "mongoroot",
+    "mongo_pass": "mongopass",
+    "mongo_useAuth": false
 }

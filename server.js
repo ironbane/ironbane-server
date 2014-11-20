@@ -3,10 +3,7 @@ var express = require('express'),
     net = require('net'),
     sio = require('socket.io'),
     sio_redis = require('socket.io-redis'),
-    nconf = require('nconf'),
-    config = require('/opt/ironbane-secret/ironbane-dev-settings/ibconfig.json'),
-    seneca = require('seneca');
-
+    nconf = require('nconf');
 
 // load config and defaults
 require('./config')();
@@ -15,12 +12,19 @@ var port = nconf.get('port'),
     num_processes = nconf.get('num_workers') || require('os').cpus().length;
 
 var MongoClient = require('mongodb').MongoClient,
-    mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/admin'; // TODO: auth
-    console.log(mongoUrl);
+    mongoUrl;
+
+    if(nconf.get('mongo_useAuth')) {
+        mongoUrl = 'mongodb://' + nconf.get('mongo_user') + ':' + nconf.get('mongo_pass') + '@' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port');
+    } else {
+        mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port');
+    }
+
 if (cluster.isMaster) {
 
     MongoClient.connect(mongoUrl, function (err, db) {
-        db.db("ironbane");
+        db.db(nconf.get('mongo_db'));
+
         if (err) {
             console.error('unable to connect to mongo: ', err);
             return;
@@ -89,9 +93,7 @@ if (cluster.isMaster) {
     // Note we don't use a port here because the master listens on it for us.
     var app = new express();
 
-    var MongoClient = require('mongodb').MongoClient,
-        mongoUrl = 'mongodb://' + config.mongouser + ':' + config.mongopass + '@' + nconf.get('mongo_host') + ':' + config.mongoport + '/admin',
-    _db;
+    var _db;
 
     MongoClient.connect(mongoUrl, function (err, db) {
         if (err) {
@@ -99,7 +101,7 @@ if (cluster.isMaster) {
             return;
         }
 
-        _db = db.db("ironbane");
+        _db = db.db(nconf.get('mongo_db'));
     });
 
     // Here you might use middleware, attach routes, etc.

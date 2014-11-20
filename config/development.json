@@ -1,3 +1,4 @@
 {
-    "port": 5001
+    "port": 5001,
+    "mongo_db": "ironbane_dev"
 }
