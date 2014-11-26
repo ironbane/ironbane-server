@@ -178,7 +178,7 @@ if (cluster.isMaster) {
             console.log('spawn requested!', socket.id);
 
             var playerEnt = {
-                position: [22, 5, -10],
+                position: [22, 25, -10],
                 rotation: [0, Math.PI - 0.4, 0],
                 socket: socket.id
             };
