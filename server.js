@@ -14,11 +14,11 @@ var port = nconf.get('port'),
 var MongoClient = require('mongodb').MongoClient,
     mongoUrl;
 
-    if(nconf.get('mongo_useAuth')) {
-        mongoUrl = 'mongodb://' + nconf.get('mongo_user') + ':' + nconf.get('mongo_pass') + '@' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port');
-    } else {
-        mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port');
-    }
+if (nconf.get('mongo_useAuth')) {
+    mongoUrl = 'mongodb://' + nconf.get('mongo_user') + ':' + nconf.get('mongo_pass') + '@' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port');
+} else {
+    mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port');
+}
 
 if (cluster.isMaster) {
 
@@ -30,6 +30,7 @@ if (cluster.isMaster) {
             return;
         }
 
+        // TODO: clear other "zones"
         db.collection('entities').drop(function (err) {
             if (err) {
                 console.log('error dropping entities', err);
@@ -122,6 +123,7 @@ if (cluster.isMaster) {
     app.get('/entities', function (req, res) {
         // TODO: service getter
         if (_db) {
+            // TODO: something with the "zones"
             _db.collection('entities').find({}).toArray(function (err, docs) {
                 if (err) {
                     res.send(500, err);
@@ -148,96 +150,103 @@ if (cluster.isMaster) {
     }));
 
     // Here you might use Socket.IO middleware for authorization etc.
-    var bindSocket = function (socket) {
-        console.log('player connected: ', socket.id);
+    var bindToZone = function (zoneId) {
+        // wrapping this in zoneId for the database
+        var bindSocket = function (socket) {
+            console.log('player connected: ', socket.id);
 
-        socket.on('disconnect', function () {
-            console.log('player disconnected: ', socket.id);
-            if (_db) {
-                _db.collection('entities').remove({
-                    socket: socket.id
-                }, function (err, result) {
-                    if (err) {
-                        console.error('error removing entity: ', socket.id);
-                        return;
-                    }
-                    // do something with result?
-                });
-            }
-        });
-
-        socket.on('chat message', function (msg) {
-            io.emit('chat message', {
-                id: socket.id,
-                msg: msg,
-                worker: process.env.pid
+            socket.on('disconnect', function () {
+                console.log('player disconnected: ', socket.id);
+                if (_db) {
+                    _db.collection(zoneId + '_entities').remove({
+                        socket: socket.id
+                    }, function (err, result) {
+                        if (err) {
+                            console.error('error removing entity: ', socket.id);
+                            return;
+                        }
+                        // do something with result?
+                    });
+                }
             });
-        });
 
-        socket.on('request spawn', function () {
-            console.log('spawn requested!', socket.id);
-
-            var playerEnt = {
-                position: [22, 25, -10],
-                rotation: [0, Math.PI - 0.4, 0],
-                socket: socket.id
-            };
-
-            if (_db) {
-                _db.collection('entities').insert([
-                    playerEnt
-                ], function (err, result) {
-                    if (err) {
-                        console.error('error writing to db', err);
-                        return;
-                    }
-
-                    // TODO: send server ID along with spawn? or generate another entity ID
-                    console.log('success add documents to db;', result);
-                    socket.emit('spawn', playerEnt);
+            socket.on('chat message', function (msg) {
+                io.emit('chat message', {
+                    id: socket.id,
+                    msg: msg,
+                    worker: process.env.pid
                 });
-            }
-        });
+            });
 
-        socket.on('movement', function (data) {
-            //console.log('movement: ', data, socket.id);
-            // this is gonna happen a LOT this *needs improvement*
-            if (_db) {
-                _db.collection('entities').update({
+            socket.on('request spawn', function () {
+                console.log('spawn requested!', socket.id);
+
+                var playerEnt = {
+                    position: [22, 25, -10],
+                    rotation: [0, Math.PI - 0.4, 0],
                     socket: socket.id
-                }, {$set: data}, function (err, result) {
-                    if (err) {
-                        console.error('error updating entity: ', err);
-                        return;
-                    }
-                    // do anything with result?
-                });
-            }
-        });
+                };
 
-        socket.on('sync', function () {
-            //console.log('sync: ', socket.id);
-            // I know this sucks, but it's the easiest way I could think of, have each client request updates
-            if(_db) {
-                _db.collection('entities').find({}).toArray(function (err, docs) {
-                    if (err) {
-                        console.error('db error get entities: ', err);
-                    }
+                if (_db) {
+                    _db.collection(zoneId + '_entities').insert([
+                        playerEnt
+                    ], function (err, result) {
+                        if (err) {
+                            console.error('error writing to db', err);
+                            return;
+                        }
 
-                    socket.emit('sync', docs || []);
-                });
-            }
-        });
+                        // TODO: send server ID along with spawn? or generate another entity ID
+                        console.log('success add documents to db;', result);
+                        socket.emit('spawn', playerEnt);
+                    });
+                }
+            });
 
+            socket.on('movement', function (data) {
+                //console.log('movement: ', data, socket.id);
+                // this is gonna happen a LOT this *needs improvement*
+                if (_db) {
+                    _db.collection(zoneId + '_entities').update({
+                        socket: socket.id
+                    }, {
+                        $set: data
+                    }, function (err, result) {
+                        if (err) {
+                            console.error('error updating entity: ', err);
+                            return;
+                        }
+                        // do anything with result?
+                    });
+                }
+            });
+
+            socket.on('sync', function () {
+                //console.log('sync: ', socket.id);
+                // I know this sucks, but it's the easiest way I could think of, have each client request updates
+                if (_db) {
+                    _db.collection(zoneId + '_entities').find({}).toArray(function (err, docs) {
+                        if (err) {
+                            console.error('db error get entities: ', err);
+                        }
+
+                        socket.emit('sync', docs || []);
+                    });
+                }
+            });
+
+        };
+        // this is the actual callback for the socket io connection
+        return bindSocket;
     };
 
     // default namespace
-    io.on('connection', bindSocket);
+    io.on('connection', bindToZone('global'));
     // some "zones" TODO: get from config or db or something
-    io.of('/classic-dungeon').on('connection', bindSocket);
-    io.of('/ravenwood-village').on('connection', bindSocket);
-    io.of('/obstacle-test-course-one').on('connection', bindSocket);
-    io.of('/dev-zone').on('connection', bindSocket);
+    io.of('/classic-dungeon').on('connection', bindToZone('classic-dungeon'));
+    io.of('/ravenwood-village').on('connection', bindToZone('ravenwood-village'));
+    io.of('/obstacle-test-course-one').on('connection', bindToZone('obstacle-test-course-one'));
+    io.of('/dev-zone').on('connection', bindToZone('dev-zone'));
 
     // Listen to messages sent from the master. Ignore everything else.
     process.on('message', function (message, connection) {
