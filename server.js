@@ -148,7 +148,7 @@ if (cluster.isMaster) {
     }));
 
     // Here you might use Socket.IO middleware for authorization etc.
-    io.on('connection', function (socket) {
+    var bindSocket = function (socket) {
         console.log('player connected: ', socket.id);
 
         socket.on('disconnect', function () {
@@ -229,7 +229,15 @@ if (cluster.isMaster) {
             }
         });
 
-    });
+    };
+
+    // default namespace
+    io.on('connection', bindSocket);
+    // some "zones" TODO: get from config or db or something
+    io.of('/classic-dungeon').on('connection', bindSocket);
+    io.of('/ravenwood-village').on('connection', bindSocket);
+    io.of('/obstacle-test-course-one').on('connection', bindSocket);
+    io.of('/dev-zone').on('connection', bindSocket);
 
     // Listen to messages sent from the master. Ignore everything else.
     process.on('message', function (message, connection) {
