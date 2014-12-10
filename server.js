@@ -20,6 +20,14 @@ if (nconf.get('mongo_useAuth')) {
     mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port');
 }
 
+// TODO: move to config / db
+var zones = [
+    'obstacle-test-course-one',
+    'classic-dungeon',
+    'ravenwood-village'
+];
+var EntityService = require('./server/entity-service.js');
+
 if (cluster.isMaster) {
 
     MongoClient.connect(mongoUrl, function (err, db) {
@@ -94,15 +102,15 @@ if (cluster.isMaster) {
     // Note we don't use a port here because the master listens on it for us.
     var app = new express();
 
-    var _db;
-
     MongoClient.connect(mongoUrl, function (err, db) {
         if (err) {
             console.error('unable to connect to mongo: ', err);
             return;
         }
 
-        _db = db.db(nconf.get('mongo_db'));
+        db.db(nconf.get('mongo_db'));
+
+        EntityService.init(db);
     });
 
     // Here you might use middleware, attach routes, etc.
@@ -136,7 +144,6 @@ if (cluster.isMaster) {
         }
     });
 
-
     // Don't expose our internal server to the outside.
     var server = app.listen(0, 'localhost'),
         io = sio(server);
@@ -157,17 +164,7 @@ if (cluster.isMaster) {
 
             socket.on('disconnect', function () {
                 console.log('player disconnected: ', socket.id);
-                if (_db) {
-                    _db.collection(zoneId + '_entities').remove({
-                        socket: socket.id
-                    }, function (err, result) {
-                        if (err) {
-                            console.error('error removing entity: ', socket.id);
-                            return;
-                        }
-                        // do something with result?
-                    });
-                }
+                EntityService.remove(zoneId, socket.id);
             });
 
             socket.on('chat message', function (msg) {
@@ -179,7 +176,7 @@ if (cluster.isMaster) {
             });
 
             socket.on('request spawn', function () {
-                console.log('spawn requested!', socket.id);
+                console.log('spawn requested! ', zoneId, ' ', socket.id);
 
                 var playerEnt = {
                     position: [22, 25, -10],
@@ -187,52 +184,20 @@ if (cluster.isMaster) {
                     socket: socket.id
                 };
 
-                if (_db) {
-                    _db.collection(zoneId + '_entities').insert([
-                        playerEnt
-                    ], function (err, result) {
-                        if (err) {
-                            console.error('error writing to db', err);
-                            return;
-                        }
-
-                        // TODO: send server ID along with spawn? or generate another entity ID
-                        console.log('success add documents to db;', result);
-                        socket.emit('spawn', playerEnt);
-                    });
-                }
+                EntityService.add(zoneId, playerEnt).then(function() {
+                    socket.emit('spawn', playerEnt);
+                });
             });
 
             socket.on('movement', function (data) {
-                //console.log('movement: ', data, socket.id);
-                // this is gonna happen a LOT this *needs improvement*
-                if (_db) {
-                    _db.collection(zoneId + '_entities').update({
-                        socket: socket.id
-                    }, {
-                        $set: data
-                    }, function (err, result) {
-                        if (err) {
-                            console.error('error updating entity: ', err);
-                            return;
-                        }
-                        // do anything with result?
-                    });
-                }
+                EntityService.update(zoneId, socket.id, data);
             });
 
             socket.on('sync', function () {
-                //console.log('sync: ', socket.id);
-                // I know this sucks, but it's the easiest way I could think of, have each client request updates
-                if (_db) {
-                    _db.collection(zoneId + '_entities').find({}).toArray(function (err, docs) {
-                        if (err) {
-                            console.error('db error get entities: ', err);
-                        }
-
-                        socket.emit('sync', docs || []);
-                    });
-                }
+                // TODO: grab spatially
+                EntityService.getAll(zoneId).then(function(entities) {
+                    socket.emit('sync', entities);
+                });
             });
 
         };
