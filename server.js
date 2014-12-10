@@ -100,13 +100,16 @@ if (cluster.isMaster) {
 
 } else {
     // Note we don't use a port here because the master listens on it for us.
-    var app = new express();
+    var app = new express(),
+        _db;
 
     MongoClient.connect(mongoUrl, function (err, db) {
         if (err) {
             console.error('unable to connect to mongo: ', err);
             return;
         }
+
+        _db = db;
 
         db.db(nconf.get('mongo_db'));
 
@@ -126,22 +129,6 @@ if (cluster.isMaster) {
     // TODO: remove test endpoint
     app.get('/', function (req, res) {
         res.sendFile(__dirname + '/index.html');
-    });
-    // this is just a debug / test method
-    app.get('/entities', function (req, res) {
-        // TODO: service getter
-        if (_db) {
-            // TODO: something with the "zones"
-            _db.collection('entities').find({}).toArray(function (err, docs) {
-                if (err) {
-                    res.send(500, err);
-                } else {
-                    res.send(docs);
-                }
-            });
-        } else {
-            res.send(500, 'no db connection');
-        }
     });
 
     // Don't expose our internal server to the outside.
