@@ -31,12 +31,12 @@ var EntityService = require('./server/entity-service.js');
 if (cluster.isMaster) {
 
     MongoClient.connect(mongoUrl, function (err, db) {
-        db.db(nconf.get('mongo_db'));
-
         if (err) {
             console.error('unable to connect to mongo: ', err);
             return;
         }
+
+        db.db(nconf.get('mongo_db'));
 
         // TODO: clear other "zones"
         db.collection('entities').drop(function (err) {
