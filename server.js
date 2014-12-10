@@ -156,6 +156,16 @@ if (cluster.isMaster) {
         port: nconf.get('redis_port')
     }));
 
+    // TODO: factor out into service
+    var chatHandler = function (socket) {
+        socket.on('chat message', function (msg) {
+            socket.emit('chat message', {
+                id: socket.id,
+                msg: msg
+            });
+        });
+    };
+
     // Here you might use Socket.IO middleware for authorization etc.
     var bindToZone = function (zoneId) {
         // wrapping this in zoneId for the database
@@ -167,14 +177,6 @@ if (cluster.isMaster) {
                 EntityService.remove(zoneId, socket.id);
             });
 
-            socket.on('chat message', function (msg) {
-                io.emit('chat message', {
-                    id: socket.id,
-                    msg: msg,
-                    worker: process.env.pid
-                });
-            });
-
             socket.on('request spawn', function () {
                 console.log('spawn requested! ', zoneId, ' ', socket.id);
 
@@ -184,7 +186,7 @@ if (cluster.isMaster) {
                     socket: socket.id
                 };
 
-                EntityService.add(zoneId, playerEnt).then(function() {
+                EntityService.add(zoneId, playerEnt).then(function () {
                     socket.emit('spawn', playerEnt);
                 });
             });
@@ -195,7 +197,7 @@ if (cluster.isMaster) {
 
             socket.on('sync', function () {
                 // TODO: grab spatially
-                EntityService.getAll(zoneId).then(function(entities) {
+                EntityService.getAll(zoneId).then(function (entities) {
                     socket.emit('sync', entities);
                 });
             });
@@ -206,12 +208,10 @@ if (cluster.isMaster) {
     };
 
     // default namespace
-    io.on('connection', bindToZone('global'));
-    // some "zones" TODO: get from config or db or something
-    io.of('/classic-dungeon').on('connection', bindToZone('classic-dungeon'));
-    io.of('/ravenwood-village').on('connection', bindToZone('ravenwood-village'));
-    io.of('/obstacle-test-course-one').on('connection', bindToZone('obstacle-test-course-one'));
-    io.of('/dev-zone').on('connection', bindToZone('dev-zone'));
+    io.of('/chat').on('connection', chatHandler);
+    zones.forEach(function (zoneId) {
+        io.of('/' + zoneId).on('connection', bindToZone(zoneId));
+    });
 
     // Listen to messages sent from the master. Ignore everything else.
     process.on('message', function (message, connection) {
