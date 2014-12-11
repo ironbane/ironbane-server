@@ -3,7 +3,8 @@ var express = require('express'),
     net = require('net'),
     sio = require('socket.io'),
     sio_redis = require('socket.io-redis'),
-    nconf = require('nconf');
+    nconf = require('nconf'),
+    passport = require('passport');
 
 // load config and defaults
 require('./config')();
@@ -20,12 +21,9 @@ if (nconf.get('mongo_useAuth')) {
     mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port');
 }
 
-// TODO: move to config / db
-var zones = [
-    'obstacle-test-course-one',
-    'classic-dungeon',
-    'ravenwood-village'
-];
+// TODO: use db
+var zones = nconf.get('zones') || [];
+
 var EntityService = require('./server/entity-service.js');
 
 if (cluster.isMaster) {
@@ -126,10 +124,11 @@ if (cluster.isMaster) {
         next();
     });
 
-    // TODO: remove test endpoint
-    app.get('/', function (req, res) {
-        res.sendFile(__dirname + '/index.html');
-    });
+    // session / auth
+    app.use(passport.initialize());
+
+    // admin site routes
+    require('./server/admin/router.js')(app);
 
     // Don't expose our internal server to the outside.
     var server = app.listen(0, 'localhost'),
@@ -157,11 +156,20 @@ if (cluster.isMaster) {
     var bindToZone = function (zoneId) {
         // wrapping this in zoneId for the database
         var bindSocket = function (socket) {
+            io.of('/admin').emit('ibConnection', {
+                socketId: socket.id,
+                zoneId: zoneId
+            });
             console.log('player connected: ', socket.id);
 
             socket.on('disconnect', function () {
                 console.log('player disconnected: ', socket.id);
                 EntityService.remove(zoneId, socket.id);
+
+                io.of('/admin').emit('ibDisconnect', {
+                    socketId: socket.id,
+                    zoneId: zoneId
+                });
             });
 
             socket.on('request spawn', function () {
@@ -196,6 +204,7 @@ if (cluster.isMaster) {
 
     // default namespace
     io.of('/chat').on('connection', chatHandler);
+    io.of('/admin').on('connection', chatHandler); // TODO: separate handler
     zones.forEach(function (zoneId) {
         io.of('/' + zoneId).on('connection', bindToZone(zoneId));
     });
