@@ -1,4 +1,5 @@
 {
     "port": 5001,
-    "mongo_db": "ironbane_dev"
+    "mongo_db": "ironbane_dev",
+    "sio_redis_key": "sio_ironbane_dev"
 }
