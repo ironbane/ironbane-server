@@ -3,7 +3,8 @@ var express = require('express'),
     net = require('net'),
     sio = require('socket.io'),
     sio_redis = require('socket.io-redis'),
-    nconf = require('nconf');
+    nconf = require('nconf'),
+    passport = require('passport');
 
 // load config and defaults
 require('./config')();
@@ -20,15 +21,20 @@ if (nconf.get('mongo_useAuth')) {
     mongoUrl = 'mongodb://' + nconf.get('mongo_host') + ':' + nconf.get('mongo_port');
 }
 
+// TODO: use db
+var zones = nconf.get('zones') || [];
+
+var EntityService = require('./server/entity-service.js');
+
 if (cluster.isMaster) {
 
     MongoClient.connect(mongoUrl, function (err, db) {
-        db.db(nconf.get('mongo_db'));
-
         if (err) {
             console.error('unable to connect to mongo: ', err);
             return;
         }
+
+        db.db(nconf.get('mongo_db'));
 
         // TODO: clear other "zones"
         db.collection('entities').drop(function (err) {
@@ -92,9 +98,8 @@ if (cluster.isMaster) {
 
 } else {
     // Note we don't use a port here because the master listens on it for us.
-    var app = new express();
-
-    var _db;
+    var app = new express(),
+        _db;
 
     MongoClient.connect(mongoUrl, function (err, db) {
         if (err) {
@@ -102,7 +107,11 @@ if (cluster.isMaster) {
             return;
         }
 
-        _db = db.db(nconf.get('mongo_db'));
+        _db = db;
+
+        db.db(nconf.get('mongo_db'));
+
+        EntityService.init(db);
     });
 
     // Here you might use middleware, attach routes, etc.
@@ -115,27 +124,11 @@ if (cluster.isMaster) {
         next();
     });
 
-    // TODO: remove test endpoint
-    app.get('/', function (req, res) {
-        res.sendFile(__dirname + '/index.html');
-    });
-    // this is just a debug / test method
-    app.get('/entities', function (req, res) {
-        // TODO: service getter
-        if (_db) {
-            // TODO: something with the "zones"
-            _db.collection('entities').find({}).toArray(function (err, docs) {
-                if (err) {
-                    res.send(500, err);
-                } else {
-                    res.send(docs);
-                }
-            });
-        } else {
-            res.send(500, 'no db connection');
-        }
-    });
+    // session / auth
+    app.use(passport.initialize());
 
+    // admin site routes
+    require('./server/admin/router.js')(app);
 
     // Don't expose our internal server to the outside.
     var server = app.listen(0, 'localhost'),
@@ -147,37 +140,38 @@ if (cluster.isMaster) {
         port: nconf.get('redis_port')
     }));
 
+    // TODO: factor out into service
+    var chatHandler = function (socket) {
+        socket.on('chat message', function (msg) {
+            socket.emit('chat message', {
+                id: socket.id,
+                msg: msg
+            });
+        });
+    };
+
     // Here you might use Socket.IO middleware for authorization etc.
     var bindToZone = function (zoneId) {
         // wrapping this in zoneId for the database
         var bindSocket = function (socket) {
+            io.of('/admin').emit('ibConnection', {
+                socketId: socket.id,
+                zoneId: zoneId
+            });
             console.log('player connected: ', socket.id);
 
             socket.on('disconnect', function () {
                 console.log('player disconnected: ', socket.id);
-                if (_db) {
-                    _db.collection(zoneId + '_entities').remove({
-                        socket: socket.id
-                    }, function (err, result) {
-                        if (err) {
-                            console.error('error removing entity: ', socket.id);
-                            return;
-                        }
-                        // do something with result?
-                    });
-                }
-            });
+                EntityService.remove(zoneId, socket.id);
 
-            socket.on('chat message', function (msg) {
-                io.emit('chat message', {
-                    id: socket.id,
-                    msg: msg,
-                    worker: process.env.pid
+                io.of('/admin').emit('ibDisconnect', {
+                    socketId: socket.id,
+                    zoneId: zoneId
                 });
             });
 
             socket.on('request spawn', function () {
-                console.log('spawn requested!', socket.id);
+                console.log('spawn requested! ', zoneId, ' ', socket.id);
 
                 var playerEnt = {
                     position: [22, 25, -10],
@@ -185,52 +179,20 @@ if (cluster.isMaster) {
                     socket: socket.id
                 };
 
-                if (_db) {
-                    _db.collection(zoneId + '_entities').insert([
-                        playerEnt
-                    ], function (err, result) {
-                        if (err) {
-                            console.error('error writing to db', err);
-                            return;
-                        }
-
-                        // TODO: send server ID along with spawn? or generate another entity ID
-                        console.log('success add documents to db;', result);
-                        socket.emit('spawn', playerEnt);
-                    });
-                }
+                EntityService.add(zoneId, playerEnt).then(function () {
+                    socket.emit('spawn', playerEnt);
+                });
             });
 
             socket.on('movement', function (data) {
-                //console.log('movement: ', data, socket.id);
-                // this is gonna happen a LOT this *needs improvement*
-                if (_db) {
-                    _db.collection(zoneId + '_entities').update({
-                        socket: socket.id
-                    }, {
-                        $set: data
-                    }, function (err, result) {
-                        if (err) {
-                            console.error('error updating entity: ', err);
-                            return;
-                        }
-                        // do anything with result?
-                    });
-                }
+                EntityService.update(zoneId, socket.id, data);
             });
 
             socket.on('sync', function () {
-                //console.log('sync: ', socket.id);
-                // I know this sucks, but it's the easiest way I could think of, have each client request updates
-                if (_db) {
-                    _db.collection(zoneId + '_entities').find({}).toArray(function (err, docs) {
-                        if (err) {
-                            console.error('db error get entities: ', err);
-                        }
-
-                        socket.emit('sync', docs || []);
-                    });
-                }
+                // TODO: grab spatially
+                EntityService.getAll(zoneId).then(function (entities) {
+                    socket.emit('sync', entities);
+                });
             });
 
         };
@@ -239,12 +201,11 @@ if (cluster.isMaster) {
     };
 
     // default namespace
-    io.on('connection', bindToZone('global'));
-    // some "zones" TODO: get from config or db or something
-    io.of('/classic-dungeon').on('connection', bindToZone('classic-dungeon'));
-    io.of('/ravenwood-village').on('connection', bindToZone('ravenwood-village'));
-    io.of('/obstacle-test-course-one').on('connection', bindToZone('obstacle-test-course-one'));
-    io.of('/dev-zone').on('connection', bindToZone('dev-zone'));
+    io.of('/chat').on('connection', chatHandler);
+    io.of('/admin').on('connection', chatHandler); // TODO: separate handler
+    zones.forEach(function (zoneId) {
+        io.of('/' + zoneId).on('connection', bindToZone(zoneId));
+    });
 
     // Listen to messages sent from the master. Ignore everything else.
     process.on('message', function (message, connection) {

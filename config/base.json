@@ -7,5 +7,10 @@
     "mongo_db": "ironbane",
     "mongo_user": "mongoroot",
     "mongo_pass": "mongopass",
-    "mongo_useAuth": false
+    "mongo_useAuth": false,
+    "admin_auth": {
+        "username": "admin",
+        "password": "admin"
+    },
+    "zones": ["dev-zone"]
 }
