@@ -134,10 +134,8 @@ if (cluster.isMaster) {
     var server = app.listen(0, 'localhost'),
         io = sio(server);
 
-    // Tell Socket.IO to use the redis adapter. By default, the redis
-    // server is assumed to be on localhost:6379. You don't have to
-    // specify them explicitly unless you want to change them.
     io.adapter(sio_redis({
+        key: nconf.get('sio_redis_key'),
         host: nconf.get('redis_host'),
         port: nconf.get('redis_port')
     }));
