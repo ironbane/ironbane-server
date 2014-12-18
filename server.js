@@ -173,8 +173,14 @@ if (cluster.isMaster) {
             socket.on('request spawn', function () {
                 console.log('spawn requested! ', zoneId, ' ', socket.id);
 
+                // super hack until this can come from the server reading ib_entities or db
+                var spawnpoint = [22, 25, -10];
+                if(zoneId === 'tower-of-doom') {
+                    spawnpoint = [0, 0, 0];
+                }
+
                 var playerEnt = {
-                    position: [22, 25, -10],
+                    position: spawnpoint,
                     rotation: [0, Math.PI - 0.4, 0],
                     socket: socket.id
                 };
