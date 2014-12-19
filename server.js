@@ -108,7 +108,7 @@ if (cluster.isMaster) {
         }
 
         _db = db;
-
+        app.db = db;
         db.db(nconf.get('mongo_db'));
 
         EntityService.init(db);

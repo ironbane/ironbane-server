@@ -11,6 +11,8 @@ module.exports = function (app) {
 
     var router = express.Router();
 
+    EntityService.init(app.db);
+
     app.set('views', __dirname + '/views');
     app.set('view engine', 'ejs');
 
