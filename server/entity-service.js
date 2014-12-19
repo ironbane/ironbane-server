@@ -18,6 +18,7 @@ var getAllEntities = function (zoneId) {
 
         _db.collection(zoneId + '_entities').find({}).toArray(function (err, docs) {
             if (err) {
+                console.error('error getting entities from ', zoneId, ' >> ', err);
                 deferred.reject(err);
             } else {
                 deferred.resolve(docs);
