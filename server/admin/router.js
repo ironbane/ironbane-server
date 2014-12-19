@@ -29,7 +29,7 @@ module.exports = function (app) {
     });
 
     router.get('/entities/:zoneId', function(req, res) {
-        EntityService.getAllEntities(req.params.zoneId).then(res.send, function(err) {
+        EntityService.getAll(req.params.zoneId).then(res.send, function(err) {
             res.send(500, err);
         });
     });
