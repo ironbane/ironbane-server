@@ -192,7 +192,8 @@ if (cluster.isMaster) {
                     components: data.components
                 };
 
-                EntityService.add(zoneId, playerEnt).then(function () {
+                EntityService.add(zoneId, playerEnt).then(function (result) {
+                    console.log('add entity result: ', result);
                     socket.emit('spawn', playerEnt);
                 });
             });
