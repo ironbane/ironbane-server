@@ -170,8 +170,13 @@ if (cluster.isMaster) {
                 });
             });
 
-            socket.on('request spawn', function () {
-                console.log('spawn requested! ', zoneId, ' ', socket.id);
+            socket.on('request spawn', function (data) {
+                console.log('[', socket.id, '] spawn requested in', zoneId, ' >> ', data);
+
+                // temp crash protection
+                if(!data) {
+                    data = {};
+                }
 
                 // super hack until this can come from the server reading ib_entities or db
                 var spawnpoint = [22, 25, -10];
@@ -180,9 +185,11 @@ if (cluster.isMaster) {
                 }
 
                 var playerEnt = {
+                    handle: data.handle,
                     position: spawnpoint,
                     rotation: [0, Math.PI - 0.4, 0],
-                    socket: socket.id
+                    socket: socket.id,
+                    components: data.components
                 };
 
                 EntityService.add(zoneId, playerEnt).then(function () {
