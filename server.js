@@ -28,25 +28,6 @@ var EntityService = require('./server/entity-service.js');
 
 if (cluster.isMaster) {
 
-    MongoClient.connect(mongoUrl, function (err, db) {
-        if (err) {
-            console.error('unable to connect to mongo: ', err);
-            return;
-        }
-
-        db.db(nconf.get('mongo_db'));
-
-        // TODO: clear other "zones"
-        db.collection('entities').drop(function (err) {
-            if (err) {
-                console.log('error dropping entities', err);
-            }
-
-            // all done
-            db.close();
-        });
-    });
-
     // This stores our workers. We need to keep them to be able to reference
     // them based on source IP address. It's also useful for auto-restart,
     // for example.
@@ -108,7 +89,6 @@ if (cluster.isMaster) {
         }
 
         _db = db;
-        app.db = db;
         db.db(nconf.get('mongo_db'));
 
         EntityService.init(db);
@@ -185,11 +165,11 @@ if (cluster.isMaster) {
                 }
 
                 var playerEnt = {
-                    handle: data.handle,
+                    handle: data.handle || 'no name mcgee',
                     position: spawnpoint,
                     rotation: [0, Math.PI - 0.4, 0],
                     socket: socket.id,
-                    components: data.components
+                    components: data.components || {}
                 };
 
                 EntityService.add(zoneId, playerEnt).then(function (result) {

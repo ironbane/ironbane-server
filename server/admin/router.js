@@ -1,8 +1,7 @@
 var express = require('express'),
     passport = require('passport'),
     path = require('path'),
-    nconf = require('nconf'),
-    EntityService = require('../entity-service.js');
+    nconf = require('nconf');
 
 require('./auth.js')();
 
@@ -10,8 +9,6 @@ module.exports = function (app) {
     'use strict';
 
     var router = express.Router();
-
-    EntityService.init(app.db);
 
     app.set('views', __dirname + '/views');
     app.set('view engine', 'ejs');
@@ -27,12 +24,6 @@ module.exports = function (app) {
     router.get('/', function (req, res) {
         res.render('index', {
             zones: nconf.get('zones')
-        });
-    });
-
-    router.get('/entities/:zoneId', function(req, res) {
-        EntityService.getAll(req.params.zoneId).then(res.send, function(err) {
-            res.status(500).send(err);
         });
     });
 
