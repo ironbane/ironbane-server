@@ -176,7 +176,7 @@ if (cluster.isMaster) {
                 // super hack until this can come from the server reading ib_entities or db
                 var spawnpoint = [22, 25, -10];
                 if(zoneId === 'tower-of-doom') {
-                    spawnpoint = [0, 0, 0];
+                    spawnpoint = [0, 3, 0];
                 }
 
                 var playerEnt = {
