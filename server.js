@@ -128,7 +128,7 @@ if (cluster.isMaster) {
 
         // TODO: better validation etc. and rooms
         socket.on('message', function (data) {
-            socket.emit('message', data);
+            io.of('/chat').emit('message', data);
         });
     };
 
