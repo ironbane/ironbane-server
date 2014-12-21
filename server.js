@@ -1,3 +1,5 @@
+'use strict';
+
 var express = require('express'),
     cluster = require('cluster'),
     net = require('net'),
@@ -122,11 +124,9 @@ if (cluster.isMaster) {
 
     // TODO: factor out into service
     var chatHandler = function (socket) {
-        socket.on('chat message', function (msg) {
-            socket.emit('chat message', {
-                id: socket.id,
-                msg: msg
-            });
+        // TODO: better validation etc. and rooms
+        socket.on('message', function (data) {
+            socket.emit('message', data);
         });
     };
 
