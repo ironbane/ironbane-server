@@ -124,6 +124,8 @@ if (cluster.isMaster) {
 
     // TODO: factor out into service
     var chatHandler = function (socket) {
+        console.log('chat connected: ', socket.id);
+
         // TODO: better validation etc. and rooms
         socket.on('message', function (data) {
             socket.emit('message', data);
@@ -151,7 +153,7 @@ if (cluster.isMaster) {
             });
 
             socket.on('request spawn', function (data) {
-                console.log('[', socket.id, '] spawn requested in', zoneId, ' >> ', data);
+                //console.log('[', socket.id, '] spawn requested in', zoneId, ' >> ', data);
 
                 // temp crash protection
                 if(!data) {
@@ -173,7 +175,7 @@ if (cluster.isMaster) {
                 };
 
                 EntityService.add(zoneId, playerEnt).then(function (result) {
-                    console.log('add entity result: ', result);
+                    //console.log('add entity result: ', result);
                     socket.emit('spawn', playerEnt);
                 });
             });
